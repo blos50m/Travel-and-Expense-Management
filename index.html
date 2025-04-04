@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✨ VoyageAI - Smart Travel Assistant</title>
+    <link rel="stylesheet" href="Style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <!-- Floating decorative elements -->
+    <div class="floating" style="width: 200px; height: 200px; background: rgba(108, 92, 231, 0.05); top: 10%; left: 5%; animation-delay: 0s;"></div>
+    <div class="floating" style="width: 300px; height: 300px; background: rgba(0, 206, 255, 0.05); top: 30%; right: 5%; animation-delay: 2s;"></div>
+    <div class="floating" style="width: 150px; height: 150px; background: rgba(253, 121, 168, 0.05); bottom: 20%; left: 10%; animation-delay: 4s;"></div>
+    
+    <header>
+        <div class="container header-content">
+            <div class="logo">
+                <i class="fas fa-rocket"></i>
+                <span>VoyageAI</span>
+            </div>
+            <div class="user-profile">
+                <span>Welcome, Explorer!</span>
+                <div class="user-avatar">
+                    <i class="fas fa-user-astronaut"></i>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <div class="container">
+        <h1>Your Personal<br>Travel Concierge ✈️</h1>
+        
+        <div class="dashboard-section">
+            <h2 class="section-title"><i class="fas fa-compass"></i> Adventure Dashboard</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">$3,142</div>
+                    <div class="stat-label">Total Savings</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">8</div>
+                    <div class="stat-label">Upcoming Trips</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">94%</div>
+                    <div class="stat-label">Policy Compliance</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">12</div>
+                    <div class="stat-label">Approvals Pending</div>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="btn btn-primary" id="planTripBtn">
+                    <i class="fas fa-plus"></i> Plan New Adventure
+                </button>
+                <button class="btn btn-outline" id="submitExpenseBtn">
+                    <i class="fas fa-receipt"></i> Submit Expedition Report
+                </button>
+            </div>
+        </div>
+        
+        <div class="features-container">
+            <div class="feature-card">
+                <div class="feature-header">
+                    <h3 class="feature-title"><i class="fas fa-map-marked-alt"></i> Travel Planning & Booking</h3>
+                    <span class="feature-status">Active</span>
+                </div>
+                <ul class="feature-items">
+                    <li class="feature-item">Automated Itinerary Generation – AI compiles flights, hotels, and transport into a single itinerary.</li>
+                    <li class="feature-item">Smart Booking Assistance – Recommends cost-effective and policy-compliant travel options.</li>
+                    <li class="feature-item">Real-time Price Tracking – Monitors fare changes and alerts for better deals.</li>
+                    <li class="feature-item">Integration with Travel Providers – Syncs with airlines, hotels, and car rentals for direct booking.</li>
+                    <li class="feature-item">Visa & Travel Compliance Checks – Flags visa requirements, vaccinations, or entry restrictions.</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-header">
+                    <h3 class="feature-title"><i class="fas fa-coins"></i> Expense Tracking & Management</h3>
+                    <span class="feature-status">Active</span>
+                </div>
+                <ul class="feature-items">
+                    <li class="feature-item">Automated Receipt Scanning – AI extracts data from receipts and categorizes expenses.</li>
+                    <li class="feature-item">Expense Policy Compliance – Flags non-compliant expenses before submission.</li>
+                    <li class="feature-item">Multi-Currency Support – Converts and records expenses in the appropriate currency.</li>
+                    <li class="feature-item">Real-time Budget Monitoring – Tracks spending against allocated budgets.</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-header">
+                    <h3 class="feature-title"><i class="fas fa-robot"></i> Workflow Automation & Approvals</h3>
+                    <span class="feature-status">Active</span>
+                </div>
+                <ul class="feature-items">
+                    <li class="feature-item">Automated Expense Report Generation – Prepares reports based on receipts and travel data.</li>
+                    <li class="feature-item">AI-Powered Approval Workflow – Routes approvals based on company policies.</li>
+                    <li class="feature-item">Personalized Expense Insights – Identifies spending patterns and suggests optimizations.</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-header">
+                    <h3 class="feature-title"><i class="fas fa-shield-alt"></i> Security & Compliance</h3>
+                    <span class="feature-status">Active</span>
+                </div>
+                <ul class="feature-items">
+                    <li class="feature-item">Data Encryption & Secure Storage – Protects sensitive financial and travel data.</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-header">
+                    <h3 class="feature-title"><i class="fas fa-comments"></i> AI Chatbot & Assistant Support</h3>
+                    <span class="feature-status">Active</span>
+                </div>
+                <ul class="feature-items">
+                    <li class="feature-item">Virtual Travel Assistant – Provides real-time travel updates, reminders, and support.</li>
+                    <li class="feature-item">Voice Command Capabilities – Allows hands-free operation via voice assistants.</li>
+                    <li class="feature-item">Predictive Analytics – Suggests optimized travel plans based on historical data.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="chatbot-container">
+        <button class="chatbot-btn" id="chatbotBtn">
+            <i class="fas fa-robot"></i>
+        </button>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Create floating elements dynamically
+            for (let i = 0; i < 5; i++) {
+                const floating = document.createElement('div');
+                floating.className = 'floating';
+                floating.style.width = `${Math.random() * 200 + 100}px`;
+                floating.style.height = floating.style.width;
+                floating.style.background = `rgba(${Math.floor(Math.random() * 100)}, ${Math.floor(Math.random() * 100)}, ${Math.floor(Math.random() * 100)}, 0.05)`;
+                floating.style.top = `${Math.random() * 100}%`;
+                floating.style.left = `${Math.random() * 100}%`;
+                floating.style.animationDelay = `${Math.random() * 5}s`;
+                document.body.appendChild(floating);
+            }
+            
+            // Button event listeners with fun effects
+            document.getElementById('planTripBtn').addEventListener('click', function() {
+                createConfetti();
+                setTimeout(() => {
+                    showModal("✈️ Adventure Time!", "Let's plan your next amazing trip! Where would you like to go?");
+                }, 500);
+            });
+            
+            document.getElementById('submitExpenseBtn').addEventListener('click', function() {
+                createConfetti();
+                setTimeout(() => {
+                    showModal("📊 Expense Report", "Ready to submit your expedition expenses? Just upload your receipts!");
+                }, 500);
+            });
+            
+            document.getElementById('chatbotBtn').addEventListener('click', function() {
+                createConfetti();
+                setTimeout(() => {
+                    showModal("🤖 Travel Buddy", "Hello explorer! How can I assist with your travel plans today?");
+                }, 500);
+            });
+            
+            // Feature card animations
+            const featureCards = document.querySelectorAll('.feature-card');
+            featureCards.forEach((card, index) => {
+                setTimeout(() => {
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 100);
+                
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(30px)';
+                card.style.transition = 'all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            });
+            
+            // Simulate real-time price tracking updates
+            setInterval(() => {
+                const savingsElement = document.querySelector('.stat-value');
+                const currentSavings = parseInt(savingsElement.textContent.replace('$', ''));
+                const randomIncrease = Math.floor(Math.random() * 15);
+                savingsElement.textContent = '$' + (currentSavings + randomIncrease);
+                
+                // Add a little animation
+                savingsElement.style.transform = 'scale(1.1)';
+                setTimeout(() => {
+                    savingsElement.style.transform = 'scale(1)';
+                }, 300);
+            }, 8000);
+            
+            // Confetti effect
+            function createConfetti() {
+                for (let i = 0; i < 50; i++) {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = `${Math.random() * 100}vw`;
+                    confetti.style.width = `${Math.random() * 10 + 5}px`;
+                    confetti.style.height = `${Math.random() * 10 + 5}px`;
+                    confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                    confetti.style.animationDuration = `${Math.random() * 3 + 2}s`;
+                    document.body.appendChild(confetti);
+                    
+                    setTimeout(() => {
+                        confetti.remove();
+                    }, 5000);
+                }
+            }
+            
+            // Simple modal function
+            function showModal(title, message) {
+                const modal = document.createElement('div');
+                modal.style.position = 'fixed';
+                modal.style.top = '50%';
+                modal.style.left = '50%';
+                modal.style.transform = 'translate(-50%, -50%)';
+                modal.style.backgroundColor = 'white';
+                modal.style.padding = '30px';
+                modal.style.borderRadius = '20px';
+                modal.style.boxShadow = '0 10px 40px rgba(0, 0, 0, 0.2)';
+                modal.style.zIndex = '10000';
+                modal.style.maxWidth = '80%';
+                modal.style.textAlign = 'center';
+                modal.style.animation = 'fadeIn 0.3s ease-out';
+                
+                modal.innerHTML = `
+                    <h2 style="margin-bottom: 15px; color: var(--primary);">${title}</h2>
+                    <p style="margin-bottom: 25px;">${message}</p>
+                    <button style="padding: 10px 25px; background: var(--gradient); color: white; border: none; border-radius: 50px; cursor: pointer; font-weight: 600;">Got it!</button>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Close modal
+                modal.querySelector('button').addEventListener('click', () => {
+                    modal.style.animation = 'fadeOut 0.3s ease-out';
+                    setTimeout(() => {
+                        modal.remove();
+                    }, 300);
+                });
+                
+                // Add keyframes for animation
+                const style = document.createElement('style');
+                style.textContent = `
+                    @keyframes fadeIn {
+                        from { opacity: 0; transform: translate(-50%, -40%); }
+                        to { opacity: 1; transform: translate(-50%, -50%); }
+                    }
+                    @keyframes fadeOut {
+                        from { opacity: 1; transform: translate(-50%, -50%); }
+                        to { opacity: 0; transform: translate(-50%, -40%); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        });
+    </script>
+</body>
+</html>
