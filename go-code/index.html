@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Travel & Expense Assistant</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>AI Travel & Expense Assistant</h1>
+  </header>
+
+  <main>
+    <section id="planner">
+      <h2>Travel Planner</h2>
+      <form id="travel-form">
+        <input type="text" id="from" placeholder="From" required />
+        <input type="text" id="to" placeholder="To" required />
+        <input type="date" id="depart-date" required />
+        <input type="date" id="return-date" />
+        <button type="submit">Plan My Trip</button>
+      </form>
+      <div id="itinerary"></div>
+    </section>
+
+    <section id="expenses">
+      <h2>Expense Tracker</h2>
+      <input type="file" id="receipt-upload" accept="image/*" />
+      <div id="expense-results"></div>
+    </section>
+
+    <section id="assistant">
+      <h2>Virtual Assistant</h2>
+      <button id="start-voice">🎤 Talk to Assistant</button>
+      <div id="assistant-response"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2025 Travel Smart</p>
+  </footer>
+
+  <script src="flight.js"></script>
+  <script src="hotels.js"></script>
+  <script src="carhire.js"></script>
+  <script src="assistant.js"></script>
+  <script src="expense.js"></script>
+  <script src="voice.js"></script>
+</body>
+</html>
