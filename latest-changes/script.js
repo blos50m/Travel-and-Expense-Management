@@ -10,11 +10,8 @@ let tokenExpiry = 0;
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    // Load user data
     loadUserData();
-    // Setup event listeners
     setupEventListeners();
-    // Load expenses
     loadExpenses();
 });
 
@@ -42,6 +39,23 @@ async function getAmadeusToken() {
     return amadeusAccessToken;
 }
 
+// Function to fetch requests with retry logic
+async function fetchWithRetry(url, options, retries = 3) {
+    while (retries > 0) {
+        const response = await fetch(url, options);
+        if (response.ok) {
+            return response;
+        } else if (response.status === 429) {
+            // If it's a rate limit error, wait and retry
+            await new Promise(resolve => setTimeout(resolve, 1000)); // wait 1 second before retrying
+            retries--;
+        } else {
+            throw new Error(`Failed with status ${response.status}`);
+        }
+    }
+    throw new Error('Max retries reached');
+}
+
 // Search flights using Amadeus API
 async function searchFlights(origin, destination, departureDate, returnDate, travelers, travelClass) {
     const token = await getAmadeusToken();
@@ -51,23 +65,24 @@ async function searchFlights(origin, destination, departureDate, returnDate, tra
         url += `&returnDate=${returnDate}`;
     }
 
-    const response = await fetch(url, {
+    const options = {
         headers: {
             'Authorization': `Bearer ${token}`
         }
-    });
+    };
 
-    if (!response.ok) {
-        throw new Error('Failed to search flights');
+    try {
+        const response = await fetchWithRetry(url, options);
+        return await response.json();
+    } catch (error) {
+        throw new Error('Failed to search flights: ' + error.message);
     }
-
-    return await response.json();
 }
 
 // Search hotels using Amadeus API
 async function searchHotels(cityCode, checkInDate, checkOutDate, travelers) {
     const token = await getAmadeusToken();
-    const response = await fetch(`https://test.api.amadeus.com/v1/reference-data/locations/hotels/by-city?cityCode=${cityCode}&radius=5&radiusUnit=KM&ratings=3,4,5`, {
+    const response = await fetchWithRetry(`https://test.api.amadeus.com/v1/reference-data/locations/hotels/by-city?cityCode=${cityCode}&radius=5&radiusUnit=KM&ratings=3,4,5`, {
         headers: {
             'Authorization': `Bearer ${token}`
         }
@@ -90,7 +105,7 @@ async function searchHotels(cityCode, checkInDate, checkOutDate, travelers) {
 async function searchCarRentals(cityCode, pickUpDate, dropOffDate) {
     const token = await getAmadeusToken();
     // Note: Test API has limited car rental functionality
-    const response = await fetch(`https://test.api.amadeus.com/v1/reference-data/locations/pois/by-city?cityCode=${cityCode}&categories=CAR-RENTAL`, {
+    const response = await fetchWithRetry(`https://test.api.amadeus.com/v1/reference-data/locations/pois/by-city?cityCode=${cityCode}&categories=CAR-RENTAL`, {
         headers: {
             'Authorization': `Bearer ${token}`
         }
@@ -113,7 +128,7 @@ async function searchCarRentals(cityCode, pickUpDate, dropOffDate) {
 // Get city/airport suggestions from Amadeus API
 async function getCitySuggestions(query) {
     const token = await getAmadeusToken();
-    const response = await fetch(`https://test.api.amadeus.com/v1/reference-data/locations?subType=CITY,AIRPORT&keyword=${encodeURIComponent(query)}`, {
+    const response = await fetchWithRetry(`https://test.api.amadeus.com/v1/reference-data/locations?subType=CITY,AIRPORT&keyword=${encodeURIComponent(query)}`, {
         headers: {
             'Authorization': `Bearer ${token}`
         }
@@ -689,7 +704,7 @@ async function analyzeReceiptWithOCR(file) {
                 <button class="btn btn-outline" style="padding: 5px 10px; font-size: 12px;" onclick="applyReceiptAnalysis('${merchant}', ${amount}, '${date}', 'other')">
                     <i class="fas fa-check"></i> Use This Data
                 </button>
-                <button class="btn btn-outline" style="padding: 5px 10px; font-size: 12px;" onclick="document.getElementById('receiptAnalysisContent').innerHTML += '<div style=&#39;margin-top:10px&#39;><label>Correct Details:</label><input type=&#39;text&#39; id=&#39;correctMerchant&#39; placeholder=&#39;Merchant name&#39; style=&#39;margin-bottom:5px;width:100%&#39;><input type=&#39;number&#39; id=&#39;correctAmount&#39; placeholder=&#39;Amount&#39; style=&#39;margin-bottom:5px;width:100%&#39;><input type=&#39;date&#39; id=&#39;correctDate&#39; style=&#39;margin-bottom:5px;width:100%&#39;><select id=&#39;correctCategory&#39; style=&#39;width:100%&#39;><option value=&#39;flight&#39;>Flight</option><option value=&#39;hotel&#39;>Hotel</option><option value=&#39;meal&#39;>Meal</option><option value=&#39;transport&#39;>Transport</option><option value=&#39;other&#39;>Other</option></select><button class=&#39;btn btn-primary&#39; style=&#39;width:100%;margin-top:5px&#39; onclick=&#39;applyManualReceiptData()&#39;>Apply Changes</button></div>'">
+                <button class="btn btn-outline" style="padding: 5px 10px; font-size: 12px;" onclick="document.getElementById('receiptAnalysisContent').innerHTML += '<div style=\'margin-top:10px\'><label>Correct Details:</label><input type=\'text\' id=\'correctMerchant\' placeholder=\'Merchant name\' style=\'margin-bottom:5px;width:100%\'><input type=\'number\' id=\'correctAmount\' placeholder=\'Amount\' style=\'margin-bottom:5px;width:100%\'><input type=\'date\' id=\'correctDate\' style=\'margin-bottom:5px;width:100%\'><select id=\'correctCategory\' style=\'width:100%\'><option value=\'flight\'>Flight</option><option value=\'hotel\'>Hotel</option><option value=\'meal\'>Meal</option><option value=\'transport\'>Transport</option><option value=\'other\'>Other</option></select><button class=\'btn btn-primary\' style=\'width:100%;margin-top:5px\' onclick=\'applyManualReceiptData()\' >Apply Changes</button></div>'">
                     <i class="fas fa-edit"></i> Correct Data
                 </button>
             </div>
@@ -699,7 +714,7 @@ async function analyzeReceiptWithOCR(file) {
         document.getElementById('receiptAnalysisContent').innerHTML = `
             <div style="text-align: center; color: var(--error);">
                 <p>Failed to process receipt. Please enter details manually.</p>
-                <button class="btn btn-primary" onclick="document.getElementById('receiptAnalysisContent').innerHTML += '<div style=&#39;margin-top:10px&#39;><label>Enter Details:</label><input type=&#39;text&#39; id=&#39;correctMerchant&#39; placeholder=&#39;Merchant name&#39; style=&#39;margin-bottom:5px;width:100%&#39;><input type=&#39;number&#39; id=&#39;correctAmount&#39; placeholder=&#39;Amount&#39; style=&#39;margin-bottom:5px;width:100%&#39;><input type=&#39;date&#39; id=&#39;correctDate&#39; style=&#39;margin-bottom:5px;width:100%&#39;><select id=&#39;correctCategory&#39; style=&#39;width:100%&#39;><option value=&#39;flight&#39;>Flight</option><option value=&#39;hotel&#39;>Hotel</option><option value=&#39;meal&#39;>Meal</option><option value=&#39;transport&#39;>Transport</option><option value=&#39;other&#39;>Other</option></select><button class=&#39;btn btn-primary&#39; style=&#39;width:100%;margin-top:5px&#39; onclick=&#39;applyManualReceiptData()&#39;>Apply</button></div>'">
+                <button class="btn btn-primary" onclick="document.getElementById('receiptAnalysisContent').innerHTML += '<div style=\'margin-top:10px\'><label>Enter Details:</label><input type=\'text\' id=\'correctMerchant\' placeholder=\'Merchant name\' style=\'margin-bottom:5px;width:100%\'><input type=\'number\' id=\'correctAmount\' placeholder=\'Amount\' style=\'margin-bottom:5px;width:100%\'><input type=\'date\' id=\'correctDate\' style=\'margin-bottom:5px;width:100%\'><select id=\'correctCategory\' style=\'width:100%\'><option value=\'flight\'>Flight</option><option value=\'hotel\'>Hotel</option><option value=\'meal\'>Meal</option><option value=\'transport\'>Transport</option><option value=\'other\'>Other</option></select><button class=\'btn btn-primary\' style=\'width:100%;margin-top:5px\' onclick=\'applyManualReceiptData()\'>Apply</button></div>'">
                     Enter Manually
                 </button>
             </div>
@@ -964,7 +979,7 @@ async function fetchCitySuggestions(query, targetId) {
                 document.getElementById(targetId === 'fromSuggestions' ? 'from' : 'to').value = name;
                 suggestionsDiv.innerHTML = '';
             });
-            
+
             suggestionsDiv.appendChild(suggestion);
         });
         
