@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌿 BlossomX- Travel Itinerary</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="Style.css">
+</head>
+<body>
+    <!-- Floating decorative elements -->
+    <div class="floating" style="width: 200px; height: 200px; background: rgba(76, 175, 80, 0.05); top: 10%; left: 5%; animation-delay: 0s;"></div>
+    <div class="floating" style="width: 300px; height: 300px; background: rgba(139, 195, 74, 0.05); top: 30%; right: 5%; animation-delay: 2s;"></div>
+    <div class="floating" style="width: 150px; height: 150px; background: rgba(255, 193, 7, 0.05); bottom: 20%; left: 10%; animation-delay: 4s;"></div>
+    
+    <header>
+        <div class="container header-content">
+            <div class="logo">
+                <i class="fas fa-leaf"></i>
+                <span>BlossomX</span>
+            </div>
+            <div class="user-profile">
+                <span id="username">Loading...</span>
+                <div class="user-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <div class="container">
+        <h1>AI-Powered Travel Planning</h1>
+        
+        <!-- Travel Planning Section -->
+        <div class="search-container">
+            <div class="search-tabs">
+                <div class="tab active" data-type="roundtrip">Round Trip</div>
+                <div class="tab" data-type="oneway">One Way</div>
+                <div class="tab" data-type="multicity">Multi-City</div>
+            </div>
+            
+            <form id="travelSearchForm" class="search-form">
+                <div class="form-group">
+                    <label for="from">From</label>
+                    <input type="text" id="from" placeholder="City or Airport" required>
+                    <div id="fromSuggestions" class="suggestions"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="to">To</label>
+                    <input type="text" id="to" placeholder="City or Airport" required>
+                    <div id="toSuggestions" class="suggestions"></div>
+                </div>
+                
+                <div class="form-group" id="departureGroup">
+                    <label for="departure">Departure</label>
+                    <input type="date" id="departure" required>
+                </div>
+                
+                <div class="form-group" id="returnGroup">
+                    <label for="return">Return</label>
+                    <input type="date" id="return">
+                </div>
+                
+                <div class="form-group">
+                    <label for="travelers">Travelers</label>
+                    <select id="travelers">
+                        <option value="1">1 Traveler</option>
+                        <option value="2">2 Travelers</option>
+                        <option value="3">3 Travelers</option>
+                        <option value="4">4 Travelers</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="class">Class</label>
+                    <select id="class">
+                        <option value="economy">Economy</option>
+                        <option value="premium">Premium Economy</option>
+                        <option value="business">Business</option>
+                        <option value="first">First Class</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary" id="searchBtn">
+                        <i class="fas fa-search"></i> Find Best Options
+                    </button>
+                </div>
+            </form>
+            
+            <!-- Results will be displayed here -->
+            <div class="results-container" id="resultsContainer" style="display: none;">
+                <div class="results-header">
+                    <h3>Recommended Itineraries</h3>
+                    <div class="sort-options">
+                        <label>Sort by:</label>
+                        <select id="sortOptions">
+                            <option value="price">Price (Low to High)</option>
+                            <option value="duration">Duration (Shortest)</option>
+                            <option value="rating">Airline Rating</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="itinerariesList"></div>
+                <div id="complianceCheck" style="display: none;"></div>
+                <div id="loadingIndicator" style="text-align: center; padding: 20px; display: none;">
+                    <div class="loading"></div>
+                    <p>Analyzing travel options...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal" id="itineraryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Itinerary Details</h3>
+                <button id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="cancelModal">Cancel</button>
+                <button class="btn btn-primary" id="confirmModal">Book Now</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Global variables for travel
+        let userData = {};
+        let travelData = [];
+        
+        // Initialize the travel page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load user data
+            loadUserData();
+            
+            // Setup event listeners
+            setupTravelEventListeners();
+        });
+        
+        // Load user data from localStorage or API
+        function loadUserData() {
+            const storedUser = localStorage.getItem('blossomUser');
+            if (storedUser) {
+                userData = JSON.parse(storedUser);
+            } else {
+                // Default user data
+                userData = {
+                    name: "Alex Johnson",
+                    email: "alex.johnson@example.com",
+                    company: "Acme Inc.",
+                    travelPreferences: {
+                        preferredAirlines: ["Delta", "United"],
+                        seatPreference: "window",
+                        mealPreference: "vegetarian"
+                    }
+                };
+                localStorage.setItem('blossomUser', JSON.stringify(userData));
+            }
+            
+            document.getElementById('username').textContent = userData.name;
+        }
+        
+        // Setup travel event listeners
+        function setupTravelEventListeners() {
+            // Tab switching
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    // Show/hide return date based on tab
+                    const returnGroup = document.getElementById('returnGroup');
+                    if (tab.dataset.type === 'oneway') {
+                        returnGroup.style.display = 'none';
+                    } else {
+                        returnGroup.style.display = 'block';
+                    }
+                });
+            });
+            
+            // Travel search form
+            document.getElementById('travelSearchForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                searchTravel();
+            });
+            
+            // Sort options
+            document.getElementById('sortOptions').addEventListener('change', function() {
+                sortItineraries(this.value);
+            });
+            
+            // Close modal
+            document.getElementById('closeModal').addEventListener('click', function() {
+                document.getElementById('itineraryModal').style.display = 'none';
+            });
+            
+            document.getElementById('cancelModal').addEventListener('click', function() {
+                document.getElementById('itineraryModal').style.display = 'none';
+            });
+            
+            // City/airport autocomplete
+            document.getElementById('from').addEventListener('input', function() {
+                fetchCitySuggestions(this.value, 'fromSuggestions');
+            });
+            
+            document.getElementById('to').addEventListener('input', function() {
+                fetchCitySuggestions(this.value, 'toSuggestions');
+            });
+        }
+        
+        // Search for travel options
+        async function searchTravel() {
+            const from = document.getElementById('from').value;
+            const to = document.getElementById('to').value;
+            const departure = document.getElementById('departure').value;
+            const returnDate = document.getElementById('return').value;
+            const travelers = document.getElementById('travelers').value;
+            const travelClass = document.getElementById('class').value;
+            
+            if (!from || !to || !departure) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            // Show loading indicator
+            document.getElementById('resultsContainer').style.display = 'block';
+            document.getElementById('itinerariesList').innerHTML = '';
+            document.getElementById('loadingIndicator').style.display = 'block';
+            document.getElementById('searchBtn').disabled = true;
+            document.getElementById('searchBtn').innerHTML = '<div class="loading" style="display: inline-block; margin-right: 8px;"></div> Searching...';
+            
+            try {
+                // In a real app, this would be an API call to your backend
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Simulated API response
+                const mockResponse = await generateMockTravelData(from, to, departure, returnDate, travelers, travelClass);
+                travelData = mockResponse.itineraries;
+                
+                // Display results
+                displayItineraries(travelData);
+                
+                // Check travel compliance
+                checkTravelCompliance(to);
+                
+            } catch (error) {
+                console.error('Error searching for travel:', error);
+                alert('There was an error searching for travel options. Please try again.');
+            } finally {
+                document.getElementById('loadingIndicator').style.display = 'none';
+                document.getElementById('searchBtn').disabled = false;
+                document.getElementById('searchBtn').innerHTML = '<i class="fas fa-search"></i> Find Best Options';
+            }
+        }
+        
+        // Generate mock travel data for demo purposes
+        async function generateMockTravelData(from, to, departure, returnDate, travelers, travelClass) {
+            // This would be replaced with actual API calls in production
+            const airlines = ["Delta", "United", "American", "Lufthansa", "British Airways", "Air France"];
+            const hotels = ["Marriott", "Hilton", "Hyatt", "InterContinental", "Sheraton", "Holiday Inn"];
+            const carRentals = ["Hertz", "Avis", "Enterprise", "Budget", "National", "Alamo"];
+            
+            const itineraries = [];
+            const basePrice = Math.floor(Math.random() * 500) + 300;
+            const days = returnDate ? (new Date(returnDate) - new Date(departure)) / (1000 * 60 * 60 * 24) : 0;
+            
+            for (let i = 0; i < 5; i++) {
+                const flightPrice = basePrice + Math.floor(Math.random() * 200);
+                const hotelPrice = Math.floor(Math.random() * 150) + 50;
+                const carPrice = Math.floor(Math.random() * 30) + 20;
+                
+                itineraries.push({
+                    id: `itinerary-${i}`,
+                    from,
+                    to,
+                    departure,
+                    return: returnDate,
+                    travelers,
+                    class: travelClass,
+                    totalPrice: flightPrice + (hotelPrice * (days || 1)) + (carPrice * (days || 1)),
+                    flight: {
+                        airline: airlines[Math.floor(Math.random() * airlines.length)],
+                        flightNumber: `DL${Math.floor(Math.random() * 2000) + 1000}`,
+                        departureTime: `${Math.floor(Math.random() * 12) + 6}:00 AM`,
+                        arrivalTime: `${Math.floor(Math.random() * 12) + 1}:00 PM`,
+                        duration: `${Math.floor(Math.random() * 4) + 2}h ${Math.floor(Math.random() * 50) + 10}m`,
+                        price: flightPrice,
+                        bookingUrl: `https://www.delta.com/flights/book?flight=${Math.floor(Math.random() * 1000000)}`
+                    },
+                    hotel: {
+                        name: `${hotels[Math.floor(Math.random() * hotels.length)]} ${to.split(',')[0]}`,
+                        rating: Math.floor(Math.random() * 2) + 3,
+                        pricePerNight: hotelPrice,
+                        cancellation: Math.random() > 0.3 ? "Free cancellation" : "Non-refundable",
+                        nights: days || 1,
+                        bookingUrl: `https://www.marriott.com/search/hotelList.mi?city=${to.split(',')[0]}`
+                    },
+                    car: {
+                        company: carRentals[Math.floor(Math.random() * carRentals.length)],
+                        type: ["Compact", "Midsize", "Fullsize", "SUV", "Luxury"][Math.floor(Math.random() * 5)],
+                        pricePerDay: carPrice,
+                        unlimitedMileage: Math.random() > 0.5,
+                        bookingUrl: `https://www.hertz.com/rentacar/reservation/`
+                    }
+                });
+            }
+            
+            // Sort by price
+            itineraries.sort((a, b) => a.totalPrice - b.totalPrice);
+            
+            return { itineraries };
+        }
+        
+        // Display itineraries in the UI
+        function displayItineraries(itineraries) {
+            const itinerariesList = document.getElementById('itinerariesList');
+            itinerariesList.innerHTML = '';
+            
+            itineraries.forEach(itinerary => {
+                const card = document.createElement('div');
+                card.className = 'itinerary-card';
+                card.dataset.id = itinerary.id;
+                
+                const days = itinerary.return ? (new Date(itinerary.return) - new Date(itinerary.departure)) / (1000 * 60 * 60 * 24) : 1;
+                
+                card.innerHTML = `
+                    <div class="itinerary-header">
+                        <div>
+                            <h4>${itinerary.from} to ${itinerary.to}</h4>
+                            <p>${formatDate(itinerary.departure)} ${itinerary.return ? ' - ' + formatDate(itinerary.return) : ''} • ${itinerary.travelers} Traveler${itinerary.travelers > 1 ? 's' : ''} • ${itinerary.class.charAt(0).toUpperCase() + itinerary.class.slice(1)}</p>
+                        </div>
+                        <div class="itinerary-price">$${itinerary.totalPrice.toLocaleString()}</div>
+                    </div>
+                    <div class="itinerary-body">
+                        <div class="segment">
+                            <div class="segment-icon">
+                                <i class="fas fa-plane"></i>
+                            </div>
+                            <div class="segment-details">
+                                <h4>Flight</h4>
+                                <p>${itinerary.flight.airline} • ${itinerary.flight.duration}</p>
+                                <p>${itinerary.flight.departureTime} - ${itinerary.flight.arrivalTime}</p>
+                                <p>$${itinerary.flight.price}</p>
+                            </div>
+                        </div>
+                        <div class="segment">
+                            <div class="segment-icon">
+                                <i class="fas fa-hotel"></i>
+                            </div>
+                            <div class="segment-details">
+                                <h4>Hotel</h4>
+                                <p>${itinerary.hotel.name} • ${days} night${days > 1 ? 's' : ''}</p>
+                                <p>$${itinerary.hotel.pricePerNight}/night • ${itinerary.hotel.cancellation}</p>
+                            </div>
+                        </div>
+                        <div class="segment">
+                            <div class="segment-icon">
+                                <i class="fas fa-car"></i>
+                            </div>
+                            <div class="segment-details">
+                                <h4>Transport</h4>
+                                <p>${itinerary.car.company} • ${itinerary.car.type}</p>
+                                <p>$${itinerary.car.pricePerDay}/day • ${itinerary.car.unlimitedMileage ? 'Unlimited mileage' : 'Limited mileage'}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="itinerary-footer">
+                        <button class="btn btn-outline view-details" data-id="${itinerary.id}">
+                            <i class="fas fa-info-circle"></i> Details
+                        </button>
+                        <button class="btn btn-primary book-now" data-id="${itinerary.id}" style="margin-left: 10px;">
+                            <i class="fas fa-external-link-alt"></i> Book Now
+                        </button>
+                    </div>
+                `;
+                
+                itinerariesList.appendChild(card);
+            });
+            
+            // Add event listeners to the new buttons
+            document.querySelectorAll('.view-details').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    showItineraryDetails(this.dataset.id);
+                });
+            });
+            
+            document.querySelectorAll('.book-now').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    bookItinerary(this.dataset.id);
+                });
+            });
+        }
+        
+        // Sort itineraries based on selected option
+        function sortItineraries(sortBy) {
+            if (!travelData.length) return;
+            
+            let sortedItineraries = [...travelData];
+            
+            switch(sortBy) {
+                case 'price':
+                    sortedItineraries.sort((a, b) => a.totalPrice - b.totalPrice);
+                    break;
+                case 'duration':
+                    // Sort by flight duration (simplified)
+                    sortedItineraries.sort((a, b) => {
+                        const aDuration = parseInt(a.flight.duration.split('h')[0]);
+                        const bDuration = parseInt(b.flight.duration.split('h')[0]);
+                        return aDuration - bDuration;
+                    });
+                    break;
+                case 'rating':
+                    // Sort by hotel rating (simplified)
+                    sortedItineraries.sort((a, b) => b.hotel.rating - a.hotel.rating);
+                    break;
+            }
+            
+            displayItineraries(sortedItineraries);
+        }
+        
+        // Show itinerary details in modal
+        function showItineraryDetails(id) {
+            const itinerary = travelData.find(item => item.id === id);
+            if (!itinerary) return;
+            
+            document.getElementById('modalTitle').textContent = `Itinerary Details: ${itinerary.from} to ${itinerary.to}`;
+            
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--primary); margin-bottom: 10px;">Flight Details</h4>
+                    <p><strong>Airline:</strong> ${itinerary.flight.airline} (${itinerary.flight.flightNumber})</p>
+                    <p><strong>Departure:</strong> ${itinerary.departure} at ${itinerary.flight.departureTime}</p>
+                    <p><strong>Arrival:</strong> ${itinerary.flight.arrivalTime}</p>
+                    <p><strong>Duration:</strong> ${itinerary.flight.duration}</p>
+                    <p><strong>Class:</strong> ${itinerary.class.charAt(0).toUpperCase() + itinerary.class.slice(1)}</p>
+                    <p><strong>Price:</strong> $${itinerary.flight.price}</p>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--primary); margin-bottom: 10px;">Accommodation</h4>
+                    <p><strong>Hotel:</strong> ${itinerary.hotel.name}</p>
+                    <p><strong>Rating:</strong> ${'★'.repeat(itinerary.hotel.rating)}${'☆'.repeat(5 - itinerary.hotel.rating)}</p>
+                    <p><strong>Check-in:</strong> ${itinerary.departure}</p>
+                    <p><strong>Check-out:</strong> ${itinerary.return || itinerary.departure}</p>
+                    <p><strong>Nights:</strong> ${itinerary.return ? (new Date(itinerary.return) - new Date(itinerary.departure)) / (1000 * 60 * 60 * 24) : 1}</p>
+                    <p><strong>Price per night:</strong> $${itinerary.hotel.pricePerNight}</p>
+                    <p><strong>Cancellation:</strong> ${itinerary.hotel.cancellation}</p>
+                </div>
+                
+                <div>
+                    <h4 style="color: var(--primary); margin-bottom: 10px;">Transportation</h4>
+                    <p><strong>Car Rental:</strong> ${itinerary.car.company}</p>
+                    <p><strong>Car Type:</strong> ${itinerary.car.type}</p>
+                    <p><strong>Price per day:</strong> $${itinerary.car.pricePerDay}</p>
+                    <p><strong>Mileage:</strong> ${itinerary.car.unlimitedMileage ? 'Unlimited' : 'Limited'}</p>
+                </div>
+                
+                <div style="margin-top: 20px; padding: 15px; background: var(--light); border-radius: 10px;">
+                    <h4 style="color: var(--primary); margin-bottom: 10px;">Total Price: $${itinerary.totalPrice}</h4>
+                    <p>Includes flight, ${itinerary.return ? (new Date(itinerary.return) - new Date(itinerary.departure)) / (1000 * 60 * 60 * 24) : 1} night${itinerary.return && (new Date(itinerary.return) - new Date(itinerary.departure)) / (1000 * 60 * 60 * 24) > 1 ? 's' : ''} accommodation, and car rental</p>
+                </div>
+            `;
+            
+            document.getElementById('confirmModal').textContent = 'Book Now';
+            document.getElementById('confirmModal').onclick = function() {
+                bookItinerary(id);
+                document.getElementById('itineraryModal').style.display = 'none';
+            };
+            
+            document.getElementById('itineraryModal').style.display = 'flex';
+        }
+        
+        // Book itinerary (would redirect to booking site in production)
+        function bookItinerary(id) {
+            const itinerary = travelData.find(item => item.id === id);
+            if (!itinerary) return;
+            
+            // In a real app, this would redirect to the booking site
+            alert(`Redirecting to booking site for ${itinerary.flight.airline} flight to ${itinerary.to}`);
+            window.open(itinerary.flight.bookingUrl, '_blank');
+        }
+        
+        // Check travel compliance for destination
+        function checkTravelCompliance(destination) {
+            const complianceCheck = document.getElementById('complianceCheck');
+            complianceCheck.style.display = 'block';
+            
+            // This would come from an API in production
+            const country = destination.split(',')[1] ? destination.split(',')[1].trim() : 'United States';
+            const visaRequirements = getVisaRequirements(country);
+            const healthRequirements = getHealthRequirements(country);
+            
+            complianceCheck.innerHTML = `
+                <div class="itinerary-card" style="background: #fff8e1;">
+                    <div class="itinerary-header" style="background: rgba(255, 193, 7, 0.1);">
+                        <div>
+                            <h4><i class="fas fa-passport"></i> Travel Compliance Check</h4>
+                            <p>Important information for your trip to ${country}</p>
+                        </div>
+                    </div>
+                    <div class="itinerary-body">
+                        <div class="segment">
+                            <div class="segment-icon" style="background: rgba(255, 193, 7, 0.1); color: var(--warning);">
+                                <i class="fas fa-passport"></i>
+                            </div>
+                            <div class="segment-details">
+                                <h4>Visa Requirements</h4>
+                                <p>${visaRequirements}</p>
+                                ${country !== 'United States' ? `<p style="margin-top: 5px;"><a href="https://travel.state.gov/content/travel/en/international-travel.html" target="_blank" style="color: var(--primary);">Check official requirements</a></p>` : ''}
+                            </div>
+                        </div>
+                        <div class="segment">
+                            <div class="segment-icon" style="background: rgba(255, 193, 7, 0.1); color: var(--warning);">
+                                <i class="fas fa-syringe"></i>
+                            </div>
+                            <div class="segment-details">
+                                <h4>Health Requirements</h4>
+                                <p>${healthRequirements}</p>
+                                ${healthRequirements.includes('recommended') ? `<p style="margin-top: 5px;"><a href="https://wwwnc.cdc.gov/travel" target="_blank" style="color: var(--primary);">CDC Travel Health Notices</a></p>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Get visa requirements (mock data)
+        function getVisaRequirements(country) {
+            const visaFreeCountries = ["United Kingdom", "Canada", "Mexico", "France", "Germany", "Italy", "Japan"];
+            const visaOnArrival = ["Thailand", "Indonesia", "Sri Lanka", "Kenya"];
+            const etaCountries = ["Australia", "New Zealand"];
+            
+            if (country === "United States") return "Domestic travel - no visa required";
+            if (visaFreeCountries.includes(country)) return "No visa required for stays under 90 days";
+            if (visaOnArrival.includes(country)) return "Visa available on arrival for tourism (typically $25-$50)";
+            if (etaCountries.includes(country)) return "Electronic Travel Authorization (ETA) required before departure";
+            
+            return "Visa required before travel. Apply at nearest embassy or consulate.";
+        }
+        
+        // Get health requirements (mock data)
+        function getHealthRequirements(country) {
+            const yellowFeverCountries = ["Brazil", "Peru", "Ghana", "Nigeria"];
+            const malariaCountries = ["India", "Thailand", "Vietnam", "South Africa"];
+            
+            if (yellowFeverCountries.includes(country)) return "Yellow fever vaccination required";
+            if (malariaCountries.includes(country)) return "Malaria prophylaxis recommended";
+            if (country === "United States") return "No vaccination requirements";
+            
+            return "Routine vaccinations recommended";
+        }
+        
+        // Fetch city/airport suggestions
+        async function fetchCitySuggestions(query, targetId) {
+            if (query.length < 2) {
+                document.getElementById(targetId).innerHTML = '';
+                return;
+            }
+            
+            // In a real app, this would be an API call
+            const mockSuggestions = [
+                { name: "New York, US (JFK)", code: "JFK" },
+                { name: "New York, US (LGA)", code: "LGA" },
+                { name: "Newark, US (EWR)", code: "EWR" },
+                { name: "New Orleans, US (MSY)", code: "MSY" },
+                { name: "New Delhi, India (DEL)", code: "DEL" }
+            ].filter(item => item.name.toLowerCase().includes(query.toLowerCase()));
+            
+            const suggestionsDiv = document.getElementById(targetId);
+            suggestionsDiv.innerHTML = '';
+            
+            mockSuggestions.forEach(item => {
+                const suggestion = document.createElement('div');
+                suggestion.style.padding = '8px 12px';
+                suggestion.style.cursor = 'pointer';
+                suggestion.style.borderBottom = '1px solid #eee';
+                suggestion.style.fontSize = '14px';
+                suggestion.textContent = item.name;
+                
+                suggestion.addEventListener('click', function() {
+                    document.getElementById(targetId === 'fromSuggestions' ? 'from' : 'to').value = item.name;
+                    suggestionsDiv.innerHTML = '';
+                });
+                
+                suggestionsDiv.appendChild(suggestion);
+            });
+            
+            if (mockSuggestions.length > 0) {
+                suggestionsDiv.style.display = 'block';
+                suggestionsDiv.style.border = '1px solid #ddd';
+                suggestionsDiv.style.borderRadius = '0 0 5px 5px';
+                suggestionsDiv.style.backgroundColor = 'white';
+                suggestionsDiv.style.maxHeight = '200px';
+                suggestionsDiv.style.overflowY = 'auto';
+                suggestionsDiv.style.position = 'absolute';
+                suggestionsDiv.style.width = 'calc(100% - 24px)';
+                suggestionsDiv.style.zIndex = '100';
+            } else {
+                suggestionsDiv.style.display = 'none';
+            }
+        }
+        
+        // Helper function to format date
+        function formatDate(dateString) {
+            const options = { year: 'numeric', month: 'short', day: 'numeric' };
+            return new Date(dateString).toLocaleDateString('en-US', options);
+        }
+    </script>
+</body>
+</html>
