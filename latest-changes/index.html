@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌿 BlossX- Your Travel Assistant</title>
+    <title>🌿 Blossym- Your Travel Management Assistant</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
    <link rel="stylesheet" href="Style.css">
    <!-- Add these to your head section -->
@@ -21,8 +21,8 @@
     <header>
         <div class="container header-content">
             <div class="logo">
-                <i class="fas fa-leaf"></i>
-                <span>BlossX</span>
+                <i class="fa-solid fa-suitcase"></i>
+                <span>Blossym</span>
             </div>
             <div class="user-profile">
                 <span id="username">Traveller</span>
@@ -35,6 +35,8 @@
     
     <div class="container">
         <h1>AI-Powered Travel & Expense Management</h1>
+        
+
         
         <!-- Travel Planning Section -->
         <div class="search-container">
@@ -74,14 +76,14 @@
                         <option value="2">2 Travelers</option>
                         <option value="3">3 Travelers</option>
                         <option value="4">4 Travelers</option>
+                        <option value="5">5 travelers</option>
                     </select>
                 </div>
                 
                 <div class="form-group">
-                    <label for="class">Class</label>
+                    <label for="class">Class Type</label>
                     <select id="class">
                         <option value="economy">Economy</option>
-                        <option value="premium">Premium Economy</option>
                         <option value="business">Business</option>
                         <option value="first">First Class</option>
                     </select>
@@ -151,6 +153,7 @@
                         <option value="USD">USD ($)</option>
                         <option value="EUR">EUR (€)</option>
                         <option value="GBP">GBP (£)</option>
+                        <option value="KRW">KRW (₩)</option>
                         <option value="JPY">JPY (¥)</option>
                         <option value="CAD">CAD ($)</option>
                         <option value="AUD">AUD ($)</option>
@@ -211,16 +214,16 @@
         <div class="chatbot-window" id="chatbotWindow">
             <div class="chatbot-header">
                 <div>
-                    <h3>Blos AI Assistant</h3>
+                    <h3>Bloss AI Assistant</h3>
                     <p style="font-size: 12px;">Ask me about travel or expenses</p>
                 </div>
-                <button id="closeChatbot" style="background: none; border: none; color: white; cursor: pointer;">
+                <button id="closeChatbot" style="background: rgb (98, 16, 136); border: rgb (182, 50, 189); color: rgb(189, 23, 207); cursor: pointer;">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="chatbot-messages" id="chatbotMessages">
                 <div class="message bot-message">
-                    Hello! I'm your Blos AI assistant. How can I help with your travel plans or expenses today?
+                    Hello! I'm your Bloss AI assistant. How can I help with your travel plans or expenses today?
                 </div>
             </div>
             <div class="chatbot-input">
