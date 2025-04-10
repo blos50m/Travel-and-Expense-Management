@@ -5,7 +5,7 @@ let expenseData = [];
 let currentReceipt = null;
 const AMADEUS_API_KEY = 'UJ9jHGZqhmTx0ffzWZmbFj0NKXquIczb';
 const AMADEUS_API_SECRET = '1gbrfFCiWefGpdCp';
-let amadeusAccessToken = '';
+let accessToken = '';
 let tokenExpiry = 0;
 
 // Initialize the application
@@ -13,132 +13,370 @@ document.addEventListener('DOMContentLoaded', function() {
     loadUserData();
     setupEventListeners();
     loadExpenses();
+    getAmadeusToken(); // Get initial token
 });
 
 // Get Amadeus API access token
 async function getAmadeusToken() {
-    if (Date.now() < tokenExpiry && amadeusAccessToken) {
-        return amadeusAccessToken;
-    }
-
-    const response = await fetch('https://test.api.amadeus.com/v1/security/oauth2/token', {
+    if (accessToken && Date.now() < tokenExpiry) return accessToken;
+    
+    const url = 'https://test.api.amadeus.com/v1/security/oauth2/token';
+    const options = {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded'
         },
         body: `grant_type=client_credentials&client_id=${encodeURIComponent(AMADEUS_API_KEY)}&client_secret=${encodeURIComponent(AMADEUS_API_SECRET)}`
-    });
+    };
 
-    if (!response.ok) {
-        throw new Error('Failed to get Amadeus token');
+    try {
+        const response = await fetchWithRetry(url, options);
+        const data = await response.json();
+        accessToken = data.access_token;
+        tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000; 
+        return accessToken;
+    } catch (error) {
+        console.error('Error getting Amadeus token:', error);
+        throw error;
     }
-
-    const data = await response.json();
-    amadeusAccessToken = data.access_token;
-    tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000; // 1 minute buffer
-    return amadeusAccessToken;
 }
 
-// Function to fetch requests with retry logic
-async function fetchWithRetry(url, options, retries = 3) {
-    while (retries > 0) {
+// Enhanced fetchWithRetry with better error handling
+async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
+    try {
         const response = await fetch(url, options);
-        if (response.ok) {
-            return response;
-        } else if (response.status === 429) {
-            // If it's a rate limit error, wait and retry
-            await new Promise(resolve => setTimeout(resolve, 1000)); // wait 1 second before retrying
-            retries--;
-        } else {
-            throw new Error(`Failed with status ${response.status}`);
+        
+        if (response.ok) return response;
+        
+        if (response.status === 429) {
+            const retryAfter = response.headers.get('Retry-After') || Math.min(delay, 5000);
+            if (retries > 1) {
+                await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+                return fetchWithRetry(url, options, retries - 1, delay * 2);
+            }
         }
+        
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}`);
+        
+    } catch (error) {
+        if (retries <= 1) throw error;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return fetchWithRetry(url, options, retries - 1, delay * 2);
     }
-    throw new Error('Max retries reached');
 }
 
 // Search flights using Amadeus API
-async function searchFlights(origin, destination, departureDate, returnDate, travelers, travelClass) {
-    const token = await getAmadeusToken();
-    let url = `https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=${origin}&destinationLocationCode=${destination}&departureDate=${departureDate}&adults=${travelers}&travelClass=${travelClass}`;
+async function searchFlights(originId, destinationId, departureDate, returnDate, travelers = 1, cabinClass = 'ECONOMY', currency = 'USD') {
+    await getAmadeusToken();
+    
+    let url = `https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=${originId}` +
+        `&destinationLocationCode=${destinationId}` +
+        `&departureDate=${formatDateForAPI(departureDate)}` +
+        `&adults=${travelers}` +
+        `&travelClass=${cabinClass}` +
+        `&currencyCode=${currency}` +
+        `&max=5`;
     
     if (returnDate) {
-        url += `&returnDate=${returnDate}`;
+        url += `&returnDate=${formatDateForAPI(returnDate)}`;
     }
 
     const options = {
+        method: 'GET',
         headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${accessToken}`
         }
     };
 
     try {
         const response = await fetchWithRetry(url, options);
-        return await response.json();
+        const data = await response.json();
+        return data;
     } catch (error) {
-        throw new Error('Failed to search flights: ' + error.message);
+        console.error('Flight search error:', error);
+        return getMockFlightData(originId, destinationId, departureDate, returnDate);
     }
 }
 
 // Search hotels using Amadeus API
-async function searchHotels(cityCode, checkInDate, checkOutDate, travelers) {
-    const token = await getAmadeusToken();
-    const response = await fetchWithRetry(`https://test.api.amadeus.com/v1/reference-data/locations/hotels/by-city?cityCode=${cityCode}&radius=5&radiusUnit=KM&ratings=3,4,5`, {
+async function searchHotels(cityCode, checkInDate, checkOutDate, travelers = 1) {
+    await getAmadeusToken();
+    
+    // First get hotel list
+    const hotelListUrl = `https://test.api.amadeus.com/v1/reference-data/locations/hotels/by-city?cityCode=${cityCode}&radius=5&radiusUnit=KM`;
+    
+    const hotelListOptions = {
+        method: 'GET',
         headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${accessToken}`
         }
-    });
+    };
 
-    if (!response.ok) {
-        throw new Error('Failed to search hotels');
+    try {
+        // Get hotel list
+        const hotelListResponse = await fetchWithRetry(hotelListUrl, hotelListOptions);
+        const hotelListData = await hotelListResponse.json();
+        
+        if (!hotelListData.data || hotelListData.data.length === 0) {
+            return { data: [] };
+        }
+        
+        // Get hotel offers for first 3 hotels (test API limitation)
+        const hotelIds = hotelListData.data.slice(0, 3).map(hotel => hotel.hotelId);
+        const offersUrl = `https://test.api.amadeus.com/v3/shopping/hotel-offers?hotelIds=${hotelIds.join(',')}` +
+            `&adults=${travelers}` +
+            `&checkInDate=${formatDateForAPI(checkInDate)}` +
+            `&checkOutDate=${formatDateForAPI(checkOutDate)}`;
+            
+        const offersResponse = await fetchWithRetry(offersUrl, hotelListOptions);
+        const offersData = await offersResponse.json();
+        
+        return transformHotelData(offersData);
+    } catch (error) {
+        console.error('Hotel search error:', error);
+        return getMockHotelData(cityCode, checkInDate, checkOutDate);
     }
+}
 
-    const hotelData = await response.json();
-    // Simulate pricing since test API doesn't provide real availability
-    return hotelData.data.map(hotel => ({
-        ...hotel,
-        price: Math.floor(Math.random() * 300) + 50,
-        available: true
-    }));
+function transformHotelData(apiData) {
+    if (!apiData.data) return { data: [] };
+    
+    return {
+        data: apiData.data.map(hotel => ({
+            id: hotel.hotel.hotelId,
+            name: hotel.hotel.name,
+            price: hotel.offers[0].price.total,
+            rating: hotel.hotel.rating || 3,
+            cancellation: hotel.offers[0].policies.cancellation ? 
+                hotel.offers[0].policies.cancellation.description : "Cancellation policy varies",
+            bookingUrl: hotel.offers[0].bookingLink || "#"
+        }))
+    };
 }
 
 // Search car rentals using Amadeus API
-async function searchCarRentals(cityCode, pickUpDate, dropOffDate) {
-    const token = await getAmadeusToken();
-    // Note: Test API has limited car rental functionality
-    const response = await fetchWithRetry(`https://test.api.amadeus.com/v1/reference-data/locations/pois/by-city?cityCode=${cityCode}&categories=CAR-RENTAL`, {
-        headers: {
-            'Authorization': `Bearer ${token}`
-        }
-    });
-
-    if (!response.ok) {
-        throw new Error('Failed to search car rentals');
+async function searchCarRentals(location, pickUpDate, dropOffDate, driverAge = 30, currency = 'USD') {
+    await getAmadeusToken();
+    
+    // First get location coordinates
+    const locationData = await searchCarDestinations(location);
+    if (!locationData.data || locationData.data.length === 0) {
+        return { data: [] };
     }
+    
+    const { latitude, longitude } = locationData.data[0];
+    
+    const url = `https://test.api.amadeus.com/v1/shopping/car-rental-offers?` +
+        `latitude=${latitude}&longitude=${longitude}&` +
+        `pickUpDate=${formatDateForAPI(pickUpDate)}&` +
+        `dropOffDate=${formatDateForAPI(dropOffDate)}&` +
+        `renterAge=${driverAge}&currency=${currency}`;
 
-    const carData = await response.json();
-    // Simulate pricing since test API doesn't provide real availability
-    return carData.data.map(car => ({
-        ...car,
-        price: Math.floor(Math.random() * 50) + 20,
-        type: ["Compact", "Midsize", "Fullsize", "SUV", "Luxury"][Math.floor(Math.random() * 5)],
-        available: true
-    }));
+    const options = {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`
+        }
+    };
+
+    try {
+        const response = await fetchWithRetry(url, options);
+        const data = await response.json();
+        return transformCarData(data);
+    } catch (error) {
+        console.error('Car rental search error:', error);
+        return getMockCarData(location, pickUpDate, dropOffDate);
+    }
+}
+
+function transformCarData(apiData) {
+    if (!apiData.data) return { data: [] };
+    
+    return {
+        data: apiData.data.map(car => ({
+            id: car.id,
+            name: car.provider.name,
+            type: car.carModelInfo.modelExample,
+            price: car.price.amount,
+            unlimitedMileage: car.unlimitedMileage || false,
+            bookingUrl: car.deepLink || "#"
+        }))
+    };
+}
+
+async function searchCarDestinations(query) {
+    await getAmadeusToken();
+    
+    const url = `https://test.api.amadeus.com/v1/reference-data/locations?` +
+        `subType=CITY,AIRPORT&keyword=${encodeURIComponent(query)}`;
+    
+    const options = {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`
+        }
+    };
+
+    try {
+        const response = await fetchWithRetry(url, options);
+        const data = await response.json();
+        
+        return {
+            data: data.data ? data.data.map(item => ({
+                name: item.name,
+                iataCode: item.iataCode,
+                latitude: item.geoCode.latitude,
+                longitude: item.geoCode.longitude
+            })) : []
+        };
+    } catch (error) {
+        console.error('Car destination search error:', error);
+        return { data: [] };
+    }
+}
+
+async function searchFlightDestinations(query) {
+    await getAmadeusToken();
+    
+    const url = `https://test.api.amadeus.com/v1/reference-data/locations?` +
+        `subType=CITY,AIRPORT&keyword=${encodeURIComponent(query)}`;
+    
+    const options = {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`
+        }
+    };
+
+    try {
+        const response = await fetchWithRetry(url, options);
+        const data = await response.json();
+        
+        return {
+            data: data.data ? data.data.map(item => ({
+                name: `${item.name} (${item.iataCode})`,
+                iataCode: item.iataCode,
+                address: { cityName: item.name }
+            })) : []
+        };
+    } catch (error) {
+        console.error('Flight destination search error:', error);
+        return { data: [] };
+    }
 }
 
 // Get city/airport suggestions from Amadeus API
 async function getCitySuggestions(query) {
-    const token = await getAmadeusToken();
-    const response = await fetchWithRetry(`https://test.api.amadeus.com/v1/reference-data/locations?subType=CITY,AIRPORT&keyword=${encodeURIComponent(query)}`, {
-        headers: {
-            'Authorization': `Bearer ${token}`
-        }
-    });
+    await getAmadeusToken();
+    
+    const url = `https://test.api.amadeus.com/v1/reference-data/locations?` +
+        `subType=CITY,AIRPORT&keyword=${encodeURIComponent(query)}`;
 
-    if (!response.ok) {
-        throw new Error('Failed to get city suggestions');
+    const options = {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`
+        }
+    };
+
+    try {
+        const response = await fetchWithRetry(url, options);
+        const data = await response.json();
+        
+        return {
+            data: data.data ? data.data.map(item => ({
+                name: `${item.name} (${item.iataCode})`,
+                iataCode: item.iataCode,
+                address: { cityName: item.name }
+            })) : []
+        };
+    } catch (error) {
+        console.error('City suggestion error:', error);
+        return { data: [] };
+    }
+}
+
+// Mock data generators
+function getMockFlightData(origin, destination, departureDate, returnDate) {
+    const flights = {
+        data: [{
+            id: "mock-flight-1",
+            price: { 
+                total: "450.00",
+                currency: "USD"
+            },
+            itineraries: [{
+                duration: "PT8H30M",
+                segments: [{
+                    departure: { 
+                        iataCode: origin,
+                        at: `${departureDate}T08:00:00`
+                    },
+                    arrival: { 
+                        iataCode: destination,
+                        at: `${departureDate}T16:30:00`
+                    },
+                    carrierCode: "DL",
+                    number: "123",
+                    operating: {
+                        carrierCode: "DL"
+                    }
+                }]
+            }],
+            validatingAirlineCodes: ["DL"]
+        }]
+    };
+
+    if (returnDate) {
+        flights.data[0].itineraries.push({
+            duration: "PT9H15M",
+            segments: [{
+                departure: { 
+                    iataCode: destination,
+                    at: `${returnDate}T18:00:00`
+                },
+                arrival: { 
+                    iataCode: origin,
+                    at: `${returnDate}T03:15:00+1`
+                },
+                carrierCode: "DL",
+                number: "456",
+                operating: {
+                    carrierCode: "DL"
+                }
+            }]
+        });
+        flights.data[0].price.total = "799.00";
     }
 
-    return await response.json();
+    return flights;
+}
+
+function getMockHotelData(cityCode, checkInDate, checkOutDate) {
+    return {
+        data: [{
+            id: "mock-hotel-1",
+            name: "Grand Hotel",
+            price: 199,
+            rating: 4,
+            cancellation: "Free cancellation",
+            bookingUrl: "#"
+        }]
+    };
+}
+
+function getMockCarData(cityCode, pickUpDate, dropOffDate) {
+    return {
+        data: [{
+            id: "mock-car-1",
+            name: "Enterprise",
+            type: "Midsize",
+            price: 45,
+            unlimitedMileage: true,
+            bookingUrl: "#"
+        }]
+    };
 }
 
 // Load user data from localStorage or API
@@ -330,8 +568,8 @@ function createItineraries(flights, hotels, cars, from, to, departure, returnDat
     const days = returnDate ? (new Date(returnDate) - new Date(departure)) / (1000 * 60 * 60 * 24) : 1;
     
     return flights.data.map((flight, index) => {
-        const hotel = hotels[index % hotels.length];
-        const car = cars[index % cars.length];
+        const hotel = hotels.data ? hotels.data[index % hotels.data.length] : getMockHotelData(to, departure, returnDate).data[0];
+        const car = cars.data ? cars.data[index % cars.data.length] : getMockCarData(to, departure, returnDate).data[0];
         const flightPrice = parseFloat(flight.price.total);
         const hotelPrice = hotel.price * days;
         const carPrice = car.price * days;
@@ -352,22 +590,22 @@ function createItineraries(flights, hotels, cars, from, to, departure, returnDat
                 arrivalTime: formatTime(flight.itineraries[0].segments[0].arrival.at),
                 duration: flight.itineraries[0].duration,
                 price: flightPrice,
-                bookingUrl: `https://www.booking.com/flights?flight=${flight.id}`
+                bookingUrl: `https://www.booking.com/flights/index.en-gb.html?aid=2248509&index=&label=brand-flights%2Cmsn-X3eltDZfnHys968obfsJ0g-80470695478645%3Atikwd-80470770632504%3Aloc-168%3Aneo%3Amtp%3Alp137821%3Adec%3Aqsbook%20flights&msclkid=d3e5a93642271e005ee1cec1eb153a0c&utm_campaign=Booking_Name%20EN%20Flights%20-%20Desktop&utm_medium=cpc&utm_source=bing&utm_term=X3eltDZfnHys968obfsJ0g`
             },
             hotel: {
                 name: hotel.name,
-                rating: Math.floor(Math.random() * 2) + 3, // Simulate rating
+                rating: hotel.rating || 3,
                 pricePerNight: hotel.price,
-                cancellation: "Free cancellation",
+                cancellation: hotel.cancellation || "Cancellation policy varies",
                 nights: days,
-                bookingUrl: `https://www.booking.com/hotels?city=${to.split(',')[0]}`
+                bookingUrl: hotel.bookingUrl
             },
             car: {
                 company: car.name,
                 type: car.type,
                 pricePerDay: car.price,
-                unlimitedMileage: Math.random() > 0.5,
-                bookingUrl: `https://www.booking.com/cars?location=${to.split(',')[0]}`
+                unlimitedMileage: car.unlimitedMileage,
+                bookingUrl: car.bookingUrl
             }
         };
     });
@@ -551,7 +789,7 @@ function bookItinerary(id) {
     expenseData.unshift(flightExpense);
     saveExpenses();
     
-    // Redirect to booking.com
+    // Redirect to booking URL
     window.open(itinerary.flight.bookingUrl, '_blank');
     alert('Flight has been added to your expenses!');
 }
@@ -561,16 +799,16 @@ function checkTravelCompliance(destination) {
     const complianceCheck = document.getElementById('complianceCheck');
     complianceCheck.style.display = 'block';
     
-    const country = destination.split(',')[1] ? destination.split(',')[1].trim() : 'United States';
-    const visaRequirements = getVisaRequirements(country);
-    const healthRequirements = getHealthRequirements(country);
+    // Extract the actual destination (remove airport code if present)
+    const destinationParts = destination.split('(');
+    const actualDestination = destinationParts[0].trim();
     
     complianceCheck.innerHTML = `
         <div class="itinerary-card" style="background: #fff8e1;">
             <div class="itinerary-header" style="background: rgba(255, 193, 7, 0.1);">
                 <div>
                     <h4><i class="fas fa-passport"></i> Travel Compliance Check</h4>
-                    <p>Important information for your trip to ${country}</p>
+                    <p>Important information for your trip to ${actualDestination}</p>
                 </div>
             </div>
             <div class="itinerary-body">
@@ -580,8 +818,15 @@ function checkTravelCompliance(destination) {
                     </div>
                     <div class="segment-details">
                         <h4>Visa Requirements</h4>
-                        <p>${visaRequirements}</p>
-                        ${country !== 'United States' ? `<p style="margin-top: 5px;"><a href="https://travel.state.gov/content/travel/en/international-travel.html" target="_blank" style="color: var(--primary);">Check official requirements</a></p>` : ''}
+                        <p>Check visa requirements for ${actualDestination}</p>
+                        <div style="margin-top: 10px;">
+                            <a href="https://www.lufthansa.com/za/en/entryprocesses?gclid=dcbe729a94111a1d53ad156d3c711990&gclsrc=3p.ds&msclkid=dcbe729a94111a1d53ad156d3c711990&utm_source=bing&utm_medium=cpc&utm_campaign=ZA_EN%20-%208_DSA&utm_term=%2Fza%2Fen%2F&utm_content=ZA_EN%20-%20DSA" 
+                               target="_blank" 
+                               class="btn btn-primary" 
+                               style="padding: 5px 10px; font-size: 12px;">
+                                <i class="fas fa-external-link-alt"></i> Check Visa Requirements
+                            </a>
+                        </div>
                     </div>
                 </div>
                 <div class="segment">
@@ -590,39 +835,20 @@ function checkTravelCompliance(destination) {
                     </div>
                     <div class="segment-details">
                         <h4>Health Requirements</h4>
-                        <p>${healthRequirements}</p>
-                        ${healthRequirements.includes('recommended') ? `<p style="margin-top: 5px;"><a href="https://wwwnc.cdc.gov/travel" target="_blank" style="color: var(--primary);">CDC Travel Health Notices</a></p>` : ''}
+                        <p>Check health recommendations for ${actualDestination}</p>
+                        <div style="margin-top: 10px;">
+                            <a href="https://my.bestexpatscover.com/?_ms=499&_msai=overseas%20healthcare&utm_campaign=484001933&utm_content=77309607317825&utm_medium=paidsearch&msclkid=890233792c2a1bfc29a1548e848b4b22" 
+                               target="_blank" 
+                               class="btn btn-primary" 
+                               style="padding: 5px 10px; font-size: 12px;">
+                                <i class="fas fa-external-link-alt"></i> Check Health Requirements
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     `;
-}
-
-// Get visa requirements (mock data)
-function getVisaRequirements(country) {
-    const visaFreeCountries = ["United Kingdom", "Canada", "Mexico", "France", "Germany", "Italy", "Japan"];
-    const visaOnArrival = ["Thailand", "Indonesia", "Sri Lanka", "Kenya"];
-    const etaCountries = ["Australia", "New Zealand"];
-    
-    if (country === "United States") return "Domestic travel - no visa required";
-    if (visaFreeCountries.includes(country)) return "No visa required for stays under 90 days";
-    if (visaOnArrival.includes(country)) return "Visa available on arrival for tourism (typically $25-$50)";
-    if (etaCountries.includes(country)) return "Electronic Travel Authorization (ETA) required before departure";
-    
-    return "Visa required before travel. Apply at nearest embassy or consulate.";
-}
-
-// Get health requirements (mock data)
-function getHealthRequirements(country) {
-    const yellowFeverCountries = ["Brazil", "Peru", "Ghana", "Nigeria"];
-    const malariaCountries = ["India", "Thailand", "Vietnam", "South Africa"];
-    
-    if (yellowFeverCountries.includes(country)) return "Yellow fever vaccination required";
-    if (malariaCountries.includes(country)) return "Malaria prophylaxis recommended";
-    if (country === "United States") return "No vaccination requirements";
-    
-    return "Routine vaccinations recommended";
 }
 
 // Handle receipt upload with OCR
@@ -999,6 +1225,12 @@ async function fetchCitySuggestions(query, targetId) {
     } catch (error) {
         console.error('Error fetching city suggestions:', error);
     }
+}
+
+// Helper function to format date for API
+function formatDateForAPI(dateString) {
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
 }
 
 // Helper function to format date
