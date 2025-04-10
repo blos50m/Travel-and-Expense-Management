@@ -8,6 +8,8 @@ const AMADEUS_API_SECRET = '1gbrfFCiWefGpdCp';
 let accessToken = '';
 let tokenExpiry = 0;
 
+
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     loadUserData();
@@ -20,7 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
 async function getAmadeusToken() {
     if (accessToken && Date.now() < tokenExpiry) return accessToken;
     
-    const url = 'https://test.api.amadeus.com/v1/security/oauth2/token';
+    const url = 'https://localhost:3000/test.api.amadeus.com/v1/security/oauth2/token';
     const options = {
         method: 'POST',
         headers: {
@@ -70,7 +72,7 @@ async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
 async function searchFlights(originId, destinationId, departureDate, returnDate, travelers = 1, cabinClass = 'ECONOMY', currency = 'USD') {
     await getAmadeusToken();
     
-    let url = `https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=${originId}` +
+    let url = `https://localhost:3000/test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=${originId}` +
         `&destinationLocationCode=${destinationId}` +
         `&departureDate=${formatDateForAPI(departureDate)}` +
         `&adults=${travelers}` +
@@ -104,7 +106,7 @@ async function searchHotels(cityCode, checkInDate, checkOutDate, travelers = 1) 
     await getAmadeusToken();
     
     // First get hotel list
-    const hotelListUrl = `https://test.api.amadeus.com/v1/reference-data/locations/hotels/by-city?cityCode=${cityCode}&radius=5&radiusUnit=KM`;
+    const hotelListUrl = `https://localhost:3000/test.api.amadeus.com/v1/reference-data/locations/hotels/by-city?cityCode=${cityCode}&radius=5&radiusUnit=KM`;
     
     const hotelListOptions = {
         method: 'GET',
@@ -124,7 +126,7 @@ async function searchHotels(cityCode, checkInDate, checkOutDate, travelers = 1) 
         
         // Get hotel offers for first 3 hotels (test API limitation)
         const hotelIds = hotelListData.data.slice(0, 3).map(hotel => hotel.hotelId);
-        const offersUrl = `https://test.api.amadeus.com/v3/shopping/hotel-offers?hotelIds=${hotelIds.join(',')}` +
+        const offersUrl = `https://localhost:3000/test.api.amadeus.com/v3/shopping/hotel-offers?hotelIds=${hotelIds.join(',')}` +
             `&adults=${travelers}` +
             `&checkInDate=${formatDateForAPI(checkInDate)}` +
             `&checkOutDate=${formatDateForAPI(checkOutDate)}`;
@@ -167,7 +169,7 @@ async function searchCarRentals(location, pickUpDate, dropOffDate, driverAge = 3
     
     const { latitude, longitude } = locationData.data[0];
     
-    const url = `https://test.api.amadeus.com/v1/shopping/car-rental-offers?` +
+    const url = `https://localhost:3000/test.api.amadeus.com/v1/shopping/car-rental-offers?` +
         `latitude=${latitude}&longitude=${longitude}&` +
         `pickUpDate=${formatDateForAPI(pickUpDate)}&` +
         `dropOffDate=${formatDateForAPI(dropOffDate)}&` +
@@ -208,7 +210,7 @@ function transformCarData(apiData) {
 async function searchCarDestinations(query) {
     await getAmadeusToken();
     
-    const url = `https://test.api.amadeus.com/v1/reference-data/locations?` +
+    const url = `https://localhost:3000/test.api.amadeus.com/v1/reference-data/locations?` +
         `subType=CITY,AIRPORT&keyword=${encodeURIComponent(query)}`;
     
     const options = {
@@ -239,7 +241,7 @@ async function searchCarDestinations(query) {
 async function searchFlightDestinations(query) {
     await getAmadeusToken();
     
-    const url = `https://test.api.amadeus.com/v1/reference-data/locations?` +
+    const url = `https://localhost:3000/test.api.amadeus.com/v1/reference-data/locations?` +
         `subType=CITY,AIRPORT&keyword=${encodeURIComponent(query)}`;
     
     const options = {
@@ -270,7 +272,7 @@ async function searchFlightDestinations(query) {
 async function getCitySuggestions(query) {
     await getAmadeusToken();
     
-    const url = `https://test.api.amadeus.com/v1/reference-data/locations?` +
+    const url = `https://localhost:3000/test.api.amadeus.com/v1/reference-data/locations?` +
         `subType=CITY,AIRPORT&keyword=${encodeURIComponent(query)}`;
 
     const options = {
