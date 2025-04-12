@@ -1,0 +1,28 @@
+{
+  "name": "travel-and-expense-management",
+  "version": "1.0.0",
+  "description": "This software solution is designed to streamline and automate the travel management, expense tracking, and workflow processes for businesses and employees. Leveraging AI and advanced automation, the system provides a seamless and efficient way to handle travel planning, expense management, approval workflows, and security compliance. It also includes an AI-powered chatbot to assist with real-time travel updates and administrative tasks.",
+  "main": "test.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/blos50m/Travel-and-Expense-Management.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/blos50m/Travel-and-Expense-Management/issues"
+  },
+  "homepage": "https://github.com/blos50m/Travel-and-Expense-Management#readme",
+  "dependencies": {
+    "amadeus": "^11.0.0",
+    "axios": "^1.8.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0"
+  }
+}
