@@ -315,12 +315,13 @@ function loadUserData() {
     document.getElementById('username').textContent = userData.name;
 }
 
-// Update just your createItineraries() function to this:
+
+
 function createItineraries(flights, hotels, transfers, from, to, departure, returnDate, travelers, travelClass) {
     const days = returnDate ? Math.ceil((new Date(returnDate) - new Date(departure)) / (1000 * 60 * 60 * 24)) : 1;
-    
+
     const flightResults = Array.isArray(flights) ? flights : (flights?.data || []);
-    
+
     return flightResults.map((flight, index) => {
         // Process hotel data
         const rawHotel = hotels?.[index % hotels?.length] || {
@@ -329,7 +330,7 @@ function createItineraries(flights, hotels, transfers, from, to, departure, retu
             price: 200,
             cancellation: "Free cancellation"
         };
-        
+
         // Process transfer data - use mock if API returned empty array
         const rawTransfer = transfers?.[index % transfers?.length] || {
             vehicle: { type: 'Sedan' },
@@ -343,10 +344,12 @@ function createItineraries(flights, hotels, transfers, from, to, departure, retu
         const firstSegment = segments[0] || {};
         const lastSegment = segments[segments.length - 1] || {};
 
-        // Calculate total price
-        const totalPrice = (parseFloat(flight.price?.total || 0) + 
-                          (rawHotel.price * days) + 
-                          (rawTransfer.price || 0));
+        const flightPrice = parseFloat(flight.price?.total || 0);
+        const hotelPricePerNight = rawHotel.price || (rawHotel.rating * 50) || 150;
+        const transferPricePerDay = rawTransfer.price || 0;
+
+        // ✅ Correct total price
+        const totalPrice = flightPrice + (hotelPricePerNight * days) + (transferPricePerDay * days);
 
         return {
             id: `itinerary-${index}-${Date.now()}`,
@@ -357,34 +360,33 @@ function createItineraries(flights, hotels, transfers, from, to, departure, retu
             travelers,
             class: travelClass,
             totalPrice,
-            
+
             flight: {
                 airline: flight.validatingAirlineCodes?.[0] || 'Unknown',
                 flightNumber: firstSegment.number || 'N/A',
                 departureTime: formatTime(firstSegment.departure?.at),
                 arrivalTime: formatTime(lastSegment.arrival?.at),
                 duration: formatDuration(flight.itineraries?.[0]?.duration),
-                price: parseFloat(flight.price?.total || 0),
+                price: flightPrice,
                 bookingUrl: flight.bookingUrl || `https://book.example.com?flight=${flight.id}`
             },
 
-         hotel : {
+            hotel: {
                 name: rawHotel.name || "Unknown Hotel",
                 rating: rawHotel.rating || 3,
-                price: rawHotel.price || (rawHotel.rating * 50) || 150,
-                pricePerNight: rawHotel.price || (rawHotel.rating * 50) || 150, 
+                price: hotelPricePerNight * days,
+                pricePerNight: hotelPricePerNight,
                 cancellation: rawHotel.cancellation || "Free cancellation",
                 bookingUrl: rawHotel.bookingUrl || "#"
             },
-                        
-        
+
             car: {
                 type: rawTransfer.vehicle?.type || 'Standard',
-                price: rawTransfer.price,
-                pricePerDay: rawTransfer.price, // Same as one-time price
+                price: transferPricePerDay * days,
+                pricePerDay: transferPricePerDay,
                 duration: formatDuration(rawTransfer.duration),
                 company: rawTransfer.provider?.name || 'Transfer Provider',
-                unlimitedMileage: true, // Default to true
+                unlimitedMileage: true,
                 bookingUrl: rawTransfer.bookingLink || '#'
             }
         };
@@ -1242,6 +1244,7 @@ function formatDate(dateString) {
 // // Helper function to format time
 function formatTime(dateTimeString) {
     const date = new Date(dateTimeString);
+    if (isNaN(date)) return "N/A";
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
