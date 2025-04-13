@@ -39,8 +39,8 @@ function debounce(fn, delay = 500) {
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     loadUserData();
-    setupEventListeners();
     loadExpenses();
+    setupEventListeners();
    
 });
 
@@ -368,7 +368,7 @@ function createItineraries(flights, hotels, transfers, from, to, departure, retu
                 arrivalTime: formatTime(lastSegment.arrival?.at),
                 duration: formatDuration(flight.itineraries?.[0]?.duration),
                 price: flightPrice,
-                bookingUrl: flight.bookingUrl || `https://book.example.com?flight=${flight.id}`
+                bookingUrl: flight.bookingUrl || `https://www.booking.com/flight?id=${flight.id}`
             },
 
             hotel: {
@@ -501,13 +501,15 @@ function setupEventListeners() {
         document.getElementById('reportModal').style.display = 'flex';
     });
     
-    // Close report modal
-    document.querySelector('.closeReportModal').addEventListener('click', function() {
-        document.getElementById('reportModal').style.display = 'none';
+    document.querySelectorAll('.closeReportModal').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('reportModal').style.display = 'none';
+        });
     });
-    
     // Generate report button
-    document.getElementById('generateReportBtn').addEventListener('click', generateReport);
+    document.getElementById('generateReportBtn').addEventListener('click', function() {
+        generateReport();
+    });
     
     // Close modal
     document.getElementById('closeModal').addEventListener('click', function() {
@@ -853,46 +855,24 @@ function checkTravelCompliance(destination) {
     `;
 }
 
+// Helper function to format date
+function formatDate(dateString) {
+    const options = { year: 'numeric', month: 'short', day: 'numeric' };
+    return new Date(dateString).toLocaleDateString('en-US', options);
+}
 
+// // Helper function to format time
+function formatTime(dateTimeString) {
+    const date = new Date(dateTimeString);
+    if (isNaN(date)) return "N/A";
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// // // Helper function
+function formatDateForAPI(dateStr) {
+  const [month, day, year] = dateStr.split('/');
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
 
 
 
@@ -933,6 +913,9 @@ async function handleReceiptUpload() {
     }
 }
 
+
+
+
 // Analyze receipt with OCR using Tesseract.js
 async function analyzeReceiptWithOCR(file) {
     document.getElementById('receiptAnalysis').style.display = 'block';
@@ -944,40 +927,53 @@ async function analyzeReceiptWithOCR(file) {
     `;
 
     try {
+        // Initialize Tesseract.js with English language
         const { createWorker } = Tesseract;
-        const worker = await createWorker();
+        const worker = await createWorker('eng');
         
         let result;
         if (file.type === 'application/pdf') {
-            // For PDFs, we'd need to convert to image first in a real app
-            result = await worker.recognize(URL.createObjectURL(file));
+            // For PDFs, we need to convert pages to images first
+            // In a real app, you'd use a PDF.js or similar library
+            // This is a simplified version
+            const pdfUrl = URL.createObjectURL(file);
+            result = await worker.recognize(pdfUrl);
+            URL.revokeObjectURL(pdfUrl);
         } else {
+            // For images
             result = await worker.recognize(file);
         }
         
         await worker.terminate();
         
         const text = result.data.text;
-        const amountMatch = text.match(/(Total|Amount|TOTAL|AMOUNT)[:\s]*\$?(\d+\.\d{2})/i);
-        const dateMatch = text.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/);
-        const merchantMatch = text.match(/^(.*)/);
+        console.log("OCR Text:", text); // For debugging
         
-        const amount = amountMatch ? parseFloat(amountMatch[2]) : (Math.random() * 200 + 20).toFixed(2);
-        const date = dateMatch ? formatDateForInput(dateMatch[1]) : new Date().toISOString().split('T')[0];
-        const merchant = merchantMatch ? merchantMatch[1].substring(0, 30) : 'Unknown Merchant';
+        // Improved regex patterns
+        const amountMatch = text.match(/(Total|Amount|TOTAL|AMOUNT|Balance Due|GRAND TOTAL)[:\s]*[\$€£¥]?[\s]*(\d+[\.,]\d{2})/i);
+        const dateMatch = text.match(/(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})|(\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2})/);
+        const merchantMatch = text.match(/^(.*?)(\n|$)|([A-Z][A-Z\s]{3,})/);
+        
+        const amount = amountMatch ? parseFloat(amountMatch[2].replace(',', '.')) : null;
+        const date = dateMatch ? formatDateForInput(dateMatch[0]) : new Date().toISOString().split('T')[0];
+        const merchant = merchantMatch ? (merchantMatch[0] || merchantMatch[3]).substring(0, 30).trim() : 'Unknown Merchant';
+        
+        if (!amount) {
+            throw new Error('Could not extract amount from receipt');
+        }
         
         document.getElementById('receiptAnalysisContent').innerHTML = `
             <div style="margin-bottom: 10px;">
                 <p><strong>Extracted from receipt:</strong></p>
                 <p><strong>Merchant:</strong> ${merchant}</p>
-                <p><strong>Amount:</strong> $${amount}</p>
+                <p><strong>Amount:</strong> ${formatCurrency(amount, 'USD')}</p>
                 <p><strong>Date:</strong> ${date}</p>
             </div>
             <div style="display: flex; gap: 10px;">
-                <button class="btn btn-outline" style="padding: 5px 10px; font-size: 12px;" onclick="applyReceiptAnalysis('${merchant}', ${amount}, '${date}', 'other')">
+                <button class="btn btn-outline" style="padding: 5px 10px; font-size: 12px;" onclick="applyReceiptAnalysis('${merchant.replace(/'/g, "\\'")}', ${amount}, '${date}', 'other')">
                     <i class="fas fa-check"></i> Use This Data
                 </button>
-                <button class="btn btn-outline" style="padding: 5px 10px; font-size: 12px;" onclick="document.getElementById('receiptAnalysisContent').innerHTML += '<div style=\'margin-top:10px\'><label>Correct Details:</label><input type=\'text\' id=\'correctMerchant\' placeholder=\'Merchant name\' style=\'margin-bottom:5px;width:100%\'><input type=\'number\' id=\'correctAmount\' placeholder=\'Amount\' style=\'margin-bottom:5px;width:100%\'><input type=\'date\' id=\'correctDate\' style=\'margin-bottom:5px;width:100%\'><select id=\'correctCategory\' style=\'width:100%\'><option value=\'flight\'>Flight</option><option value=\'hotel\'>Hotel</option><option value=\'meal\'>Meal</option><option value=\'transport\'>Transport</option><option value=\'other\'>Other</option></select><button class=\'btn btn-primary\' style=\'width:100%;margin-top:5px\' onclick=\'applyManualReceiptData()\' >Apply Changes</button></div>'">
+                <button class="btn btn-outline" style="padding: 5px 10px; font-size: 12px;" onclick="showManualCorrectionForm()">
                     <i class="fas fa-edit"></i> Correct Data
                 </button>
             </div>
@@ -987,7 +983,7 @@ async function analyzeReceiptWithOCR(file) {
         document.getElementById('receiptAnalysisContent').innerHTML = `
             <div style="text-align: center; color: var(--error);">
                 <p>Failed to process receipt. Please enter details manually.</p>
-                <button class="btn btn-primary" onclick="document.getElementById('receiptAnalysisContent').innerHTML += '<div style=\'margin-top:10px\'><label>Enter Details:</label><input type=\'text\' id=\'correctMerchant\' placeholder=\'Merchant name\' style=\'margin-bottom:5px;width:100%\'><input type=\'number\' id=\'correctAmount\' placeholder=\'Amount\' style=\'margin-bottom:5px;width:100%\'><input type=\'date\' id=\'correctDate\' style=\'margin-bottom:5px;width:100%\'><select id=\'correctCategory\' style=\'width:100%\'><option value=\'flight\'>Flight</option><option value=\'hotel\'>Hotel</option><option value=\'meal\'>Meal</option><option value=\'transport\'>Transport</option><option value=\'other\'>Other</option></select><button class=\'btn btn-primary\' style=\'width:100%;margin-top:5px\' onclick=\'applyManualReceiptData()\'>Apply</button></div>'">
+                <button class="btn btn-primary" onclick="showManualCorrectionForm()">
                     Enter Manually
                 </button>
             </div>
@@ -995,6 +991,28 @@ async function analyzeReceiptWithOCR(file) {
     }
 }
 
+
+// Helper function to show manual correction form
+function showManualCorrectionForm() {
+    document.getElementById('receiptAnalysisContent').innerHTML = `
+        <div style="margin-top:10px">
+            <label>Correct Details:</label>
+            <input type="text" id="correctMerchant" placeholder="Merchant name" style="margin-bottom:5px;width:100%">
+            <input type="number" id="correctAmount" placeholder="Amount" style="margin-bottom:5px;width:100%">
+            <input type="date" id="correctDate" style="margin-bottom:5px;width:100%">
+            <select id="correctCategory" style="width:100%">
+                <option value="flight">Flight</option>
+                <option value="hotel">Hotel</option>
+                <option value="meal">Meal</option>
+                <option value="transport">Transport</option>
+                <option value="other">Other</option>
+            </select>
+            <button class="btn btn-primary" style="width:100%;margin-top:5px" onclick="applyManualReceiptData()">
+                Apply Changes
+            </button>
+        </div>
+    `;
+}
 // Apply receipt analysis to form
 function applyReceiptAnalysis(merchant, amount, date, category) {
     document.getElementById('expense-description').value = merchant;
@@ -1019,31 +1037,43 @@ function applyManualReceiptData() {
 function addExpense() {
     const date = document.getElementById('expense-date').value;
     const category = document.getElementById('expense-category').value;
-    const amount = document.getElementById('expense-amount').value;
+    const amount = parseFloat(document.getElementById('expense-amount').value);
     const currency = document.getElementById('expense-currency').value;
-    const description = document.getElementById('expense-description').value;
+    const description = document.getElementById('expense-description').value.trim();
     
-    if (!date || !category || !amount || !description) {
-        alert('Please fill in all required fields');
+    // Validate inputs
+    if (!date || !category || isNaN(amount) || amount <= 0 || !description) {
+        alert('Please fill in all required fields with valid values');
         return;
     }
     
+    // Create new expense
     const newExpense = {
         id: `expense-${Date.now()}`,
         date,
         category,
-        amount: parseFloat(amount),
+        amount,
         currency,
         description,
         receipt: currentReceipt ? currentReceipt.name : null,
         status: 'pending'
     };
     
+    // Add to array and save
     expenseData.unshift(newExpense);
     saveExpenses();
-    loadExpenses();
+    
+    // Refresh display
+    displayExpenses();
     
     // Reset form
+    resetExpenseForm();
+    
+    // Show success message
+    alert('Expense added successfully!');
+}
+
+function resetExpenseForm() {
     document.getElementById('expense-date').value = '';
     document.getElementById('expense-category').value = '';
     document.getElementById('expense-amount').value = '';
@@ -1053,57 +1083,61 @@ function addExpense() {
     document.getElementById('receiptAnalysis').style.display = 'none';
     document.getElementById('receiptUpload').style.display = 'block';
     currentReceipt = null;
-    
-    alert('Expense added successfully!');
+}
+
+// Improved loadExpenses function
+function loadExpenses() {
+    const storedExpenses = localStorage.getItem('blossomExpenses');
+    if (storedExpenses) {
+        try {
+            expenseData = JSON.parse(storedExpenses);
+        } catch (e) {
+            console.error('Error parsing expenses:', e);
+            expenseData = [];
+        }
+    } else {
+        expenseData = [];
+    }
+    displayExpenses();
+}
+
+// Improved saveExpenses function
+function saveExpenses() {
+    try {
+        localStorage.setItem('blossomExpenses', JSON.stringify(expenseData));
+    } catch (e) {
+        console.error('Error saving expenses:', e);
+    }
 }
 
 // Load expenses from localStorage or API
 function loadExpenses() {
-    const storedExpenses = localStorage.getItem('blossomExpenses');
-    if (storedExpenses) {
-        expenseData = JSON.parse(storedExpenses);
-    } else {
-        expenseData = [
-            {
-                id: 'expense-1',
-                date: '2023-06-15',
-                category: 'flight',
-                amount: 1247.00,
-                currency: 'USD',
-                description: 'Flight to London',
-                receipt: 'flight-receipt.jpg',
-                status: 'approved'
-            },
-            {
-                id: 'expense-2',
-                date: '2023-06-16',
-                category: 'hotel',
-                amount: 225.00,
-                currency: 'USD',
-                description: 'Hotel deposit',
-                receipt: 'hotel-receipt.pdf',
-                status: 'approved'
-            },
-            {
-                id: 'expense-3',
-                date: '2023-06-17',
-                category: 'meal',
-                amount: 45.50,
-                currency: 'USD',
-                description: 'Dinner with client',
-                receipt: null,
-                status: 'pending'
-            }
-        ];
-        saveExpenses();
+    try {
+        const storedExpenses = localStorage.getItem('blossomExpenses');
+        if (storedExpenses) {
+            expenseData = JSON.parse(storedExpenses);
+            console.log('Loaded expenses:', expenseData);
+        } else {
+            expenseData = []; // Initialize empty if no stored data
+        }
+        displayExpenses();
+        saveExpenses(); // Save to localStorage
+    } catch (error) {
+        console.error('Error loading expenses:', error);
+        expenseData = [];
+        displayExpenses();
     }
-    
-    displayExpenses();
+
 }
 
 // Save expenses to localStorage or API
 function saveExpenses() {
-    localStorage.setItem('blossomExpenses', JSON.stringify(expenseData));
+    try {
+        localStorage.setItem('blossomExpenses', JSON.stringify(expenseData));
+        console.log('Expenses saved successfully');
+    } catch (error) {
+        console.error('Error saving expenses:', error);
+    }
 }
 
 // Display expenses in the UI
@@ -1166,34 +1200,43 @@ function displayExpenses() {
 function generateReport() {
     const startDate = document.getElementById('reportStartDate').value;
     const endDate = document.getElementById('reportEndDate').value;
-    
+    const format = document.getElementById('reportFormat').value;
+
     if (!startDate || !endDate) {
         alert('Please select both start and end dates');
         return;
     }
-    
+
     const filteredExpenses = expenseData.filter(expense => {
         return expense.date >= startDate && expense.date <= endDate;
     });
-    
+
     if (filteredExpenses.length === 0) {
         alert('No expenses found in the selected date range');
         return;
     }
-    
-    // Create PDF
+
+    if (format === 'pdf') {
+        generatePDFReport(filteredExpenses, startDate, endDate);
+    } else if (format === 'csv') {
+        generateCSVReport(filteredExpenses, startDate, endDate);
+    } else if (format === 'excel') {
+        generateExcelReport(filteredExpenses, startDate, endDate);
+    }
+
+    document.getElementById('reportModal').style.display = 'none';
+}
+
+function generatePDFReport(expenses, startDate, endDate) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     
-    // Add title
     doc.setFontSize(20);
     doc.text('Travel Expense Report', 105, 20, { align: 'center' });
     
-    // Add date range
     doc.setFontSize(12);
     doc.text(`Date Range: ${formatDate(startDate)} to ${formatDate(endDate)}`, 14, 30);
     
-    // Add table header
     doc.setFontSize(12);
     doc.setFont(undefined, 'bold');
     doc.text('Date', 14, 45);
@@ -1201,12 +1244,11 @@ function generateReport() {
     doc.text('Category', 120, 45);
     doc.text('Amount', 170, 45);
     
-    // Add expense rows
     let y = 55;
     let total = 0;
     doc.setFont(undefined, 'normal');
     
-    filteredExpenses.forEach(expense => {
+    expenses.forEach(expense => {
         doc.text(formatDate(expense.date), 14, y);
         doc.text(expense.description.substring(0, 30), 50, y);
         doc.text(expense.category, 120, y);
@@ -1215,38 +1257,36 @@ function generateReport() {
         y += 10;
     });
     
-    // Add total
     doc.setFont(undefined, 'bold');
     doc.text('Total:', 120, y + 10);
     doc.text(formatCurrency(total, 'USD'), 170, y + 10);
     
-    // Save the PDF
     doc.save(`Expense-Report-${startDate}-to-${endDate}.pdf`);
+}
+
+function generateCSVReport(expenses, startDate, endDate) {
+    let csv = 'Date,Description,Category,Amount\n';
     
-    // Close modal
-    document.getElementById('reportModal').style.display = 'none';
+    expenses.forEach(expense => {
+        csv += `"${formatDate(expense.date)}","${expense.description}","${expense.category}","${formatCurrency(expense.amount, expense.currency)}"\n`;
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Expense-Report-${startDate}-to-${endDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
-// Helper function to format date for API
-
-
-// // // Helper function
-function formatDateForAPI(dateStr) {
-  const [month, day, year] = dateStr.split('/');
-  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-}
-// Helper function to format date
-function formatDate(dateString) {
-    const options = { year: 'numeric', month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('en-US', options);
+function generateExcelReport(expenses, startDate, endDate) {
+    // For Excel, we'll use CSV with .xls extension (simple solution)
+    generateCSVReport(expenses, startDate, endDate);
+    // Note: For proper Excel format, you'd need a library like SheetJS
 }
 
-// // Helper function to format time
-function formatTime(dateTimeString) {
-    const date = new Date(dateTimeString);
-    if (isNaN(date)) return "N/A";
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-}
 
 // Helper function to format date for input field
 function formatDateForInput(dateString) {
