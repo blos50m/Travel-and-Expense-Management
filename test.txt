@@ -1,9 +1,0 @@
-post for cars/transfers    :  curl -X POST "http://localhost:3000/api/transfers" -H "Content-Type: application/json" -d "{\"startLocationCode\":\"CDG\",\"endAddressLine\":\"Avenue Anatole France, 5\",\"endCityName\":\"Paris\",\"endZipCode\":\"75007\",\"endCountryCode\":\"FR\",\"endName\":\"Souvenirs De La Tour\",\"endGeoCode\":\"48.859466,2.2976965\",\"transferType\":\"PRIVATE\",\"startDateTime\":\"2025-04-15T10:30:00\",\"providerCodes\":\"TXO\",\"passengers\":2}"
-
-post for getting all the flight  :   curl -X POST http://localhost:3000/api/flights \
--H "Content-Type: application/json" \
--d '{"origin":"SYD","destination":"BKK","departureDate":"2025-04-15","returnDate":"2025-04-22","adults":2,"travelClass":"ECONOMY","currency":"USD"}'
-
-
-get method for searching hotels     :   curl -X GET "https://test.api.amadeus.com/v1/reference-data/locations/hotels/by-city?cityCode=NYC" -H "Authorization: Bearer btWl9yGFyZV2ZyEyqrM6LEBanSmE"
-//token expires  CHANGE IT
